@@ -66,7 +66,7 @@ public class DataBaseServlet extends HttpServlet {
             Connection con = DriverManager.getConnection(url, login, password);
             result = "success";
         } catch (ClassNotFoundException | SQLException e) {
-            result = "error";
+            result = e.toString();
         }
         
         response.setContentType("text/html;charset=UTF-8");
