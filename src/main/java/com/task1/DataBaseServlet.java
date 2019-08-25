@@ -10,6 +10,7 @@ import java.io.PrintWriter;
 import java.sql.Connection;
 import java.sql.DriverManager;
 import java.sql.SQLException;
+import java.util.Properties;
 import javax.servlet.ServletException;
 import javax.servlet.annotation.WebServlet;
 import javax.servlet.http.HttpServlet;
@@ -57,15 +58,25 @@ public class DataBaseServlet extends HttpServlet {
     protected void onInfoRequest(HttpServletRequest request, HttpServletResponse response)
             throws ServletException, IOException {
         
-        String result = null;
+        String result = "";
         try {
-            Class.forName("org.postgresql.Driver");
-            String url = "jdbc:postgresql://localhost:5432";
-            String login = "ILoveMemes";
-            String password = "7355608";
-            Connection con = DriverManager.getConnection(url, login, password);
+            //DriverManager.registerDriver(new org.postgresql.Driver());
+            //Class.forName("org.postgresql.Driver");
+            String url = "jdbc:postgresql://localhost/";
+            Properties props = new Properties();
+            props.setProperty("user", "task1");
+            props.setProperty("password", "7355608");
+            //props.setProperty("ssl", "true");
+            Connection conn = DriverManager.getConnection(url, props);
+
+
+            
+            //String url = "jdbc:postgresql://localhost:5432";
+            //String login = "ILoveMemes";
+            //String password = "7355608";
+            //Connection con = DriverManager.getConnection(url, login, password);
             result = "success";
-        } catch (ClassNotFoundException | SQLException e) {
+        } catch (Exception e) {
             result = e.toString();
         }
         
