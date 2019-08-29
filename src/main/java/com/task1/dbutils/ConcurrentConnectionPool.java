@@ -11,7 +11,7 @@ import java.sql.SQLException;
 import java.util.Set;
 import java.util.concurrent.BlockingDeque;
 import java.util.concurrent.ConcurrentHashMap;
-import java.util.concurrent.CopyOnWriteArrayList;
+import java.util.concurrent.LinkedBlockingDeque;
 import java.util.concurrent.TimeUnit;
 import java.util.logging.Level;
 import java.util.logging.Logger;
@@ -39,11 +39,18 @@ public class ConcurrentConnectionPool implements ConnectionPool {
     }
     
     private void create(String url, String user, String password, int initialPoolSize) throws SQLException, InterruptedException {
-        this.url = url;
-        this.user = user;
-        this.password = password;
-        usedConnections = usedConnectionsMap.keySet();
-        resize(initialPoolSize);
+        if (initialPoolSize > 0) {
+            this.url = url;
+            this.user = user;
+            this.password = password;
+            connectionPool = new LinkedBlockingDeque<>(initialPoolSize);
+            usedConnections = usedConnectionsMap.keySet();
+            for (int i = 0; i < initialPoolSize; i++) {
+                addConnection();
+            }
+        } else {
+            throw new IllegalArgumentException("size cannot be negative or zero");
+        }
     }
     
     private void addConnection() throws SQLException {
@@ -58,6 +65,7 @@ public class ConcurrentConnectionPool implements ConnectionPool {
         return connectionPool.size() + usedConnections.size();
     }
     
+    @Deprecated
     public void resize(int newSize) throws SQLException, InterruptedException {
         if (newSize > 0) {
             while (this.getSize() <= newSize) {
@@ -78,7 +86,6 @@ public class ConcurrentConnectionPool implements ConnectionPool {
             usedConnections.add(taken);
             return taken;
         } catch (InterruptedException ex) {
-            Logger.getLogger(ConcurrentConnectionPool.class.getName()).log(Level.SEVERE, null, ex);
             throw new IllegalStateException("error while getting connection");
         }
     }
@@ -90,7 +97,6 @@ public class ConcurrentConnectionPool implements ConnectionPool {
                 connectionPool.put(connection);
                 usedConnections.remove(connection);
             } catch (InterruptedException ex) {
-                Logger.getLogger(ConcurrentConnectionPool.class.getName()).log(Level.SEVERE, null, ex);
                 throw new IllegalStateException("error while releasing connection");
             }
         } else {
@@ -105,7 +111,6 @@ public class ConcurrentConnectionPool implements ConnectionPool {
             usedConnections.add(taken);
             return taken;
         } catch (InterruptedException ex) {
-            Logger.getLogger(ConcurrentConnectionPool.class.getName()).log(Level.SEVERE, null, ex);
             throw new IllegalStateException("error while getting connection");
         }   
     }
