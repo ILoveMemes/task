@@ -13,5 +13,6 @@ import java.sql.Connection;
  */
 public interface ConnectionPool {
     Connection getConnection();
+    Connection getConnection(long timeout);
     void releaseConnection(Connection connection);
 }

@@ -8,11 +8,11 @@ package com.task1.dbutils;
 import java.sql.Connection;
 import java.sql.DriverManager;
 import java.sql.SQLException;
-import java.util.ArrayList;
-import java.util.Collection;
-import java.util.List;
+import java.util.Set;
 import java.util.concurrent.BlockingDeque;
+import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.CopyOnWriteArrayList;
+import java.util.concurrent.TimeUnit;
 import java.util.logging.Level;
 import java.util.logging.Logger;
 
@@ -26,8 +26,25 @@ public class ConcurrentConnectionPool implements ConnectionPool {
     private String user;
     private String password;
     private BlockingDeque<Connection> connectionPool;
-    private CopyOnWriteArrayList<Connection> usedConnections;
+    private ConcurrentHashMap usedConnectionsMap = new ConcurrentHashMap<>();
+    private Set usedConnections;
     private static int InitialPoolSize = 10;
+    
+    public ConcurrentConnectionPool(String url, String user, String password, int initialPoolSize) throws SQLException, InterruptedException {
+        create(url, user, password, initialPoolSize);
+    }
+    
+    public ConcurrentConnectionPool(String url, String user, String password) throws SQLException, InterruptedException {
+        create(url, user, password, InitialPoolSize);
+    }
+    
+    private void create(String url, String user, String password, int initialPoolSize) throws SQLException, InterruptedException {
+        this.url = url;
+        this.user = user;
+        this.password = password;
+        usedConnections = usedConnectionsMap.keySet();
+        resize(initialPoolSize);
+    }
     
     private void addConnection() throws SQLException {
         connectionPool.add(DriverManager.getConnection(this.url, this.user, this.password));
@@ -35,17 +52,6 @@ public class ConcurrentConnectionPool implements ConnectionPool {
     
     private void removeConnection() throws InterruptedException {
         connectionPool.take();
-    }
-    
-    public void create(String url, String user, String password, int initialPoolSize) throws SQLException, InterruptedException {
-        this.url = url;
-        this.user = user;
-        this.password = password;
-        resize(initialPoolSize);
-    }
-    
-    public void create(String url, String user, String password) throws SQLException, InterruptedException {
-        create(url, user, password, InitialPoolSize);
     }
     
     public int getSize() {
@@ -60,6 +66,8 @@ public class ConcurrentConnectionPool implements ConnectionPool {
             while (this.getSize() > newSize) {
                 removeConnection();
             }
+        } else {
+            throw new IllegalArgumentException("size cannot be negative or zero");
         }
     }
     
@@ -71,8 +79,8 @@ public class ConcurrentConnectionPool implements ConnectionPool {
             return taken;
         } catch (InterruptedException ex) {
             Logger.getLogger(ConcurrentConnectionPool.class.getName()).log(Level.SEVERE, null, ex);
+            throw new IllegalStateException("error while getting connection");
         }
-        return null;
     }
 
     @Override
@@ -83,10 +91,23 @@ public class ConcurrentConnectionPool implements ConnectionPool {
                 usedConnections.remove(connection);
             } catch (InterruptedException ex) {
                 Logger.getLogger(ConcurrentConnectionPool.class.getName()).log(Level.SEVERE, null, ex);
+                throw new IllegalStateException("error while releasing connection");
             }
         } else {
             throw new IllegalArgumentException("wrong connection to return");           
         }
+    }
+
+    @Override
+    public Connection getConnection(long timeout) {
+        try {
+            Connection taken = connectionPool.poll(timeout, TimeUnit.MILLISECONDS);
+            usedConnections.add(taken);
+            return taken;
+        } catch (InterruptedException ex) {
+            Logger.getLogger(ConcurrentConnectionPool.class.getName()).log(Level.SEVERE, null, ex);
+            throw new IllegalStateException("error while getting connection");
+        }   
     }
     
 }
