@@ -12,48 +12,66 @@ import java.sql.Connection;
 import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.sql.Statement;
+import java.util.function.Consumer;
+import java.util.function.Function;
+import java.util.logging.Level;
+import java.util.logging.Logger;
+import javafx.util.Pair;
+import static jdk.nashorn.internal.objects.NativeFunction.function;
 
 /**
  *
  * @author ILoveMemes
  */
 public class AuthorRepository {
-    
+
     private ConnectionPool connectionPool;
-    
-    public AuthorRepository() {
-        try {
-            connectionPool = new ConcurrentConnectionPool("jdbc:postgresql:5432/task1", "task1", "7355608");
-        } catch (SQLException ex) {
-            //Logger.getLogger(AuthorRepository.class.getName()).log(Level.SEVERE, null, ex);
-        } catch (InterruptedException ex) {
-            //Logger.getLogger(AuthorRepository.class.getName()).log(Level.SEVERE, null, ex);
-        }
+
+    public AuthorRepository(ConnectionPool connectionPool) {
+        this.connectionPool = connectionPool;
     }
-    
+
     public AuthorEntity create() {
         //
         return new AuthorEntity();
     }
-    
+
     public void update(AuthorEntity authorEntity) {
         //
     }
-    
+
     public void delete(AuthorEntity authorEntity) {
         //
     }
-    
+
+    private void indb(Consumer<Connection> function) {
+        Connection connection = null;
+        try {
+            connection = connectionPool.getConnection();
+            function.accept(connection);
+        } finally {
+            if (connection != null) {
+                connectionPool.releaseConnection(connection);
+            }
+        }
+    }
+
     public AuthorEntity getById(int id) throws SQLException {
-        Connection connection = connectionPool.getConnection();
-        Statement statement = connection.createStatement();
-        ResultSet resultSet = statement.executeQuery("SELECT * FROM authors WHERE id = " + id);
         AuthorEntity result = new AuthorEntity();
-        result.setId(resultSet.getInt("id"));
-        result.setBirthYear(resultSet.getInt("birthYear"));
-        result.setFirstName(resultSet.getString("firstName"));
-        result.setLastName(resultSet.getString("lastName"));
+        indb((connection) -> {
+            try {
+                Statement statement = connection.createStatement();
+                ResultSet resultSet = statement.executeQuery("SELECT * FROM authors WHERE id = " + id);
+                result.setId(resultSet.getInt("id"));
+                result.setBirthYear(resultSet.getInt("birthYear"));
+                result.setFirstName(resultSet.getString("firstName"));
+                result.setLastName(resultSet.getString("lastName"));
+            } catch (SQLException ex) {
+                //Logger.getLogger(AuthorRepository.class.getName()).log(Level.SEVERE, null, ex);
+                // throw some shit on propeller
+            }
+        });
         return result;
     }
-    
+
 }
